@@ -1,11 +1,12 @@
 use winnow::{
     branch::alt,
     bytes::{tag, take, take_until1},
-    combinator::{self, map_res},
     error::VerboseError,
     number,
     sequence::{self, preceded},
+    combinator,
     IResult,
+    prelude::*,
 };
 use std::{
     borrow::Cow,
@@ -27,16 +28,10 @@ pub struct VdfFile<'i> {
     entries: HashMap<Cow<'i, str>, MapValue<'i>>,
 }
 
-pub fn parse_string<'i>(input: &'i [u8]) -> IResult<&'i [u8], Cow<str>, VerboseError<&'i [u8]>> {
-    winnow::error::context(
-        "parseString",
-        map_res(
-            sequence::terminated(take_until1(&[0x00][..]), take(1usize)),
-            |bytes| -> Result<Cow<'i, str>, Utf8Error> {
-                return Ok(Cow::Borrowed(from_utf8(bytes)?));
-            },
-        ),
-    )(input)
+
+pub fn parse_string(input: &[u8]) -> IResult<&[u8],Cow<str>,VerboseError<&[u8]>> {
+    let bytes = sequence::terminated(take_until1(&[0x00][..]), take(1usize)).context("parseSring").parse_next(input)?;
+    Ok((bytes.0,Cow::Borrowed(from_utf8(bytes.1).unwrap())))      
 }
 
 #[allow(clippy::needless_lifetimes)]
