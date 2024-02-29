@@ -4,19 +4,9 @@ version = 3
 
 [[package]]
 name = "memchr"
-version = "2.3.4"
+version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
-
-[[package]]
-name = "nom"
-version = "7.0.0-alpha2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39881f3ef37da4bfa8ce3478d840baaed5fdfc6560c0b91006924ec191a756bf"
-dependencies = [
- "memchr",
- "version_check",
-]
+checksum = "523dc4f511e55ab87b694dc30d0f820d60906ef06413f93d4d7a1385599cc149"
 
 [[package]]
 name = "steam-parse"
@@ -29,11 +19,14 @@ dependencies = [
 name = "vdf-parse"
 version = "0.1.0"
 dependencies = [
- "nom",
+ "winnow",
 ]
 
 [[package]]
-name = "version_check"
-version = "0.9.3"
+name = "winnow"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
+checksum = "da01e24d23aeb852fb05609f2701ce4da9f73d58857239ed3853667cf178f204"
+dependencies = [
+ "memchr",
+]

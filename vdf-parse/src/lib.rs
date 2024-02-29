@@ -1,6 +1,6 @@
-use nom::{
+use winnow::{
     branch::alt,
-    bytes::complete::{tag, take, take_until},
+    bytes::{tag, take, take_until1},
     combinator::{self, map_res},
     error::VerboseError,
     number,
@@ -28,10 +28,10 @@ pub struct VdfFile<'i> {
 }
 
 pub fn parse_string<'i>(input: &'i [u8]) -> IResult<&'i [u8], Cow<str>, VerboseError<&'i [u8]>> {
-    nom::error::context(
+    winnow::error::context(
         "parseString",
         map_res(
-            sequence::terminated(take_until(&[0x00][..]), take(1usize)),
+            sequence::terminated(take_until1(&[0x00][..]), take(1usize)),
             |bytes| -> Result<Cow<'i, str>, Utf8Error> {
                 return Ok(Cow::Borrowed(from_utf8(bytes)?));
             },
@@ -43,7 +43,7 @@ pub fn parse_string<'i>(input: &'i [u8]) -> IResult<&'i [u8], Cow<str>, VerboseE
 pub fn parse_integer_entity<'i>(
     input: &'i [u8],
 ) -> IResutlCowStrMapValue {
-    nom::error::context(
+    winnow::error::context(
         "parse_integer_entity",
         sequence::tuple((
             preceded(tag(b"\x02"), parse_string),
@@ -56,7 +56,7 @@ pub fn parse_integer_entity<'i>(
 pub fn parse_string_entity<'i>(
     input: &'i [u8],
 ) -> IResutlCowStrMapValue {
-    nom::error::context(
+    winnow::error::context(
         "parse_string_entity",
         sequence::tuple((
             preceded(tag(b"\x01"), parse_string),
@@ -69,13 +69,13 @@ pub fn parse_string_entity<'i>(
 pub fn parse_hash_entity<'i>(
     input: &'i [u8],
 ) -> IResutlCowStrMapValue {
-    nom::error::context(
+    winnow::error::context(
         "parse_hash_entity",
         sequence::delimited(
             tag(b"\x00"),
             sequence::tuple((
                 parse_string,
-                combinator::map(nom::multi::many0(parse_map_value), |x| {
+                combinator::map(winnow::multi::many0(parse_map_value), |x: Vec<(Cow<'_, str>, MapValue<'_>)>| {
                     MapValue::Object(x.into_iter().collect())
                 }),
             )),
@@ -88,7 +88,7 @@ pub fn parse_hash_entity<'i>(
 pub fn parse_map_value<'i>(
     input: &'i [u8],
 ) -> IResutlCowStrMapValue {
-    nom::error::context(
+    winnow::error::context(
         "parse_map_entity",
         alt((parse_string_entity, parse_integer_entity, parse_hash_entity)),
     )(input)
