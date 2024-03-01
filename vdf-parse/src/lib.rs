@@ -6,7 +6,6 @@ use std::{
 use winnow::{
     branch::alt,
     bytes::{tag, take, take_until1},
-    combinator,
     error::VerboseError,
     number,
     sequence::{self, preceded},
@@ -39,7 +38,7 @@ pub fn parse_string(input: &[u8]) -> IResult<&[u8], Cow<str>, VerboseError<&[u8]
 pub fn parse_integer_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
     (
         preceded(tag(b"\x02"), parse_string),
-        combinator::map(number::complete::le_u32, MapValue::Number),
+        number::le_u32.map(MapValue::Number)
     )
         .context("parse_integer_entity")
         .parse_next(input)
@@ -49,7 +48,7 @@ pub fn parse_integer_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
 pub fn parse_string_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
     (
         preceded(tag(b"\x01"), parse_string),
-        combinator::map(parse_string, MapValue::String),
+        parse_string.map(MapValue::String),
     )
         .context("parse_string_entity")
         .parse_next(input)
@@ -61,10 +60,9 @@ pub fn parse_hash_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
         tag(b"\x00"),
         (
             parse_string,
-            combinator::map(
-                winnow::multi::many0(parse_map_value),
-                |x: Vec<(Cow<'_, str>, MapValue<'_>)>| MapValue::Object(x.into_iter().collect()),
-            ),
+            winnow::multi::many0(parse_map_value).map(|x: Vec<(Cow<'_, str>, MapValue<'_>)>| {
+                MapValue::Object(x.into_iter().collect())
+            }),
         ),
         tag(b"\x08"),
     )
