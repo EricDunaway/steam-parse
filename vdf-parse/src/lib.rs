@@ -11,7 +11,7 @@ use winnow::{
 use std::{
     borrow::Cow,
     collections::HashMap,
-    str::{self, from_utf8, Utf8Error},
+    str::{self, from_utf8},
 };
 
 #[derive(PartialEq, Eq, Debug)]
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn parse_int_kv() {
-        let input: &[u8; 11] = &b"\x02appid\x00Jz\x86\xF4";
+        let input: &[u8; 11] = b"\x02appid\x00Jz\x86\xF4";
         match parse_integer_entity(input) {
             Ok((_, actual)) => assert_eq!(
                 actual,
