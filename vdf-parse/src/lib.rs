@@ -4,11 +4,11 @@ use std::{
     str::{self, from_utf8},
 };
 use winnow::{
+    binary,
     branch::alt,
     bytes::{tag, take, take_until1},
+    combinator::{self, preceded},
     error::VerboseError,
-    number,
-    sequence::{self, preceded},
     IResult, Parser,
 };
 
@@ -28,7 +28,7 @@ pub struct VdfFile<'i> {
 }
 
 pub fn parse_string(input: &[u8]) -> IResult<&[u8], Cow<str>, VerboseError<&[u8]>> {
-    let bytes = sequence::terminated(take_until1(&[0x00][..]), take(1usize))
+    let bytes = combinator::terminated(take_until1(&[0x00][..]), take(1usize))
         .context("parseSring")
         .parse_next(input)?;
     Ok((bytes.0, Cow::Borrowed(from_utf8(bytes.1).unwrap())))
@@ -38,7 +38,7 @@ pub fn parse_string(input: &[u8]) -> IResult<&[u8], Cow<str>, VerboseError<&[u8]
 pub fn parse_integer_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
     (
         preceded(tag(b"\x02"), parse_string),
-        number::le_u32.map(MapValue::Number)
+        binary::le_u32.map(MapValue::Number),
     )
         .context("parse_integer_entity")
         .parse_next(input)
@@ -56,11 +56,11 @@ pub fn parse_string_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
 
 #[allow(clippy::needless_lifetimes)]
 pub fn parse_hash_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
-    sequence::delimited(
+    combinator::delimited(
         tag(b"\x00"),
         (
             parse_string,
-            winnow::multi::many0(parse_map_value).map(|x: Vec<(Cow<'_, str>, MapValue<'_>)>| {
+            combinator::repeat(0.., parse_map_value).map(|x: Vec<(Cow<'_, str>, MapValue<'_>)>| {
                 MapValue::Object(x.into_iter().collect())
             }),
         ),
