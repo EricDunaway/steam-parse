@@ -4,7 +4,7 @@ use winnow::{
     combinator::{alt, delimited, preceded, repeat, terminated},
     error::ContextError,
     token::{literal, take_until},
-    PResult, Parser, Str,
+    PResult, Parser,
 };
 
 #[derive(PartialEq, Eq, Debug)]
@@ -80,7 +80,7 @@ pub fn parse_map_value<'i>(
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, collections::HashMap};
+    use std::{collections::HashMap};
 
     use crate::{parse_hash_entity, parse_integer_entity, parse_string_entity, MapValue};
 
