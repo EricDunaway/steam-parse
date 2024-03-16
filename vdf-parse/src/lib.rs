@@ -14,8 +14,6 @@ pub enum MapValue {
     Object(HashMap<String, MapValue>),
 }
 
-// type IResutlCowStrMapValue<'a> = PResult<(Cow<'a, str>, MapValue<'a>), ContextError<&'a [u8]>>;
-
 #[derive(PartialEq, Eq, Debug)]
 pub struct VdfFile {
     entries: HashMap<String, MapValue>,
@@ -80,7 +78,7 @@ pub fn parse_map_value<'i>(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap};
+    use std::collections::HashMap;
 
     use crate::{parse_hash_entity, parse_integer_entity, parse_string_entity, MapValue};
 
