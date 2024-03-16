@@ -1,53 +1,51 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    str::{self, from_utf8},
-};
+use std::{collections::HashMap, str::from_utf8};
 use winnow::{
     binary,
-    branch::alt,
-    bytes::{tag, take, take_until1},
-    combinator::{self, preceded},
-    error::VerboseError,
-    IResult, Parser,
+    combinator::{alt, delimited, preceded, repeat, terminated},
+    error::ContextError,
+    token::{literal, take_until},
+    PResult, Parser, Str,
 };
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum MapValue<'i> {
+pub enum MapValue {
     Number(u32),
-    String(Cow<'i, str>),
-    Object(HashMap<Cow<'i, str>, MapValue<'i>>),
+    String(String),
+    Object(HashMap<String, MapValue>),
 }
 
-type IResutlCowStrMapValue<'a> =
-    IResult<&'a [u8], (Cow<'a, str>, MapValue<'a>), VerboseError<&'a [u8]>>;
+// type IResutlCowStrMapValue<'a> = PResult<(Cow<'a, str>, MapValue<'a>), ContextError<&'a [u8]>>;
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct VdfFile<'i> {
-    entries: HashMap<Cow<'i, str>, MapValue<'i>>,
+pub struct VdfFile {
+    entries: HashMap<String, MapValue>,
 }
 
-pub fn parse_string(input: &[u8]) -> IResult<&[u8], Cow<str>, VerboseError<&[u8]>> {
-    let bytes = combinator::terminated(take_until1(&[0x00][..]), take(1usize))
+pub fn parse_string<'i>(input: &mut &'i [u8]) -> PResult<String, ContextError<&'i str>> {
+    terminated(take_until(0.., 0x00), literal(0x00))
+        .context("parseString Before Map")
+        .map(|bytes| from_utf8(bytes).unwrap().to_string())
         .context("parseSring")
-        .parse_next(input)?;
-    Ok((bytes.0, Cow::Borrowed(from_utf8(bytes.1).unwrap())))
+        .parse_next(input)
 }
 
 #[allow(clippy::needless_lifetimes)]
-pub fn parse_integer_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
+pub fn parse_integer_entity<'i>(
+    input: &mut &'i [u8],
+) -> PResult<(String, MapValue), ContextError<&'i str>> {
     (
-        preceded(tag(b"\x02"), parse_string),
+        preceded(b"\x02", parse_string),
         binary::le_u32.map(MapValue::Number),
     )
         .context("parse_integer_entity")
         .parse_next(input)
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn parse_string_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
+pub fn parse_string_entity<'i>(
+    input: &mut &'i [u8],
+) -> PResult<(String, MapValue), ContextError<&'i str>> {
     (
-        preceded(tag(b"\x01"), parse_string),
+        preceded(literal(b"\x01"), parse_string),
         parse_string.map(MapValue::String),
     )
         .context("parse_string_entity")
@@ -55,23 +53,26 @@ pub fn parse_string_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
 }
 
 #[allow(clippy::needless_lifetimes)]
-pub fn parse_hash_entity<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
-    combinator::delimited(
-        tag(b"\x00"),
+pub fn parse_hash_entity<'i>(
+    input: &mut &'i [u8],
+) -> PResult<(String, MapValue), ContextError<&'i str>> {
+    delimited(
+        literal(b"\x00"),
         (
             parse_string,
-            combinator::repeat(0.., parse_map_value).map(|x: Vec<(Cow<'_, str>, MapValue<'_>)>| {
-                MapValue::Object(x.into_iter().collect())
-            }),
+            repeat(0.., parse_map_value)
+                .map(|x: Vec<(String, MapValue)>| MapValue::Object(x.into_iter().collect())),
         ),
-        tag(b"\x08"),
+        literal(b"\x08"),
     )
     .context("parse_hash_entity")
     .parse_next(input)
 }
 
 #[allow(clippy::needless_lifetimes)]
-pub fn parse_map_value<'i>(input: &'i [u8]) -> IResutlCowStrMapValue {
+pub fn parse_map_value<'i>(
+    input: &mut &'i [u8],
+) -> PResult<(String, MapValue), ContextError<&'i str>> {
     alt((parse_string_entity, parse_integer_entity, parse_hash_entity))
         .context("parse_map_entity")
         .parse_next(input)
@@ -85,44 +86,41 @@ mod tests {
 
     #[test]
     fn test_parse_string_entity() {
-        let input = &b"\x01exe\0\"C:\\Program Files (x86)\\Games\\Game.exe\"\0"[..];
+        let input = &mut &b"\x01exe\0\"C:\\Program Files (x86)\\Games\\Game.exe\"\0"[..];
         let expected = (
-            Cow::Borrowed("exe"),
-            MapValue::String(Cow::from("\"C:\\Program Files (x86)\\Games\\Game.exe\"")),
+            "exe".to_string(),
+            MapValue::String("\"C:\\Program Files (x86)\\Games\\Game.exe\"".to_string()),
         );
         match parse_string_entity(input) {
-            Ok((_, actual)) => assert_eq!(actual, expected),
+            Ok(actual) => assert_eq!(actual, expected),
             Err(err) => panic!("{}", err),
         }
     }
 
     #[test]
     fn parse_int_kv() {
-        let input: &[u8; 11] = b"\x02appid\x00Jz\x86\xF4";
+        let input = &mut b"\x02appid\x00Jz\x86\xF4".as_slice();
         match parse_integer_entity(input) {
-            Ok((_, actual)) => assert_eq!(
-                actual,
-                (Cow::Borrowed("appid"), MapValue::Number(4102453834))
-            ),
+            Ok(actual) => assert_eq!(actual, ("appid".to_string(), MapValue::Number(4102453834))),
             Err(err) => panic!("{}", err),
         }
     }
 
     #[test]
     fn parse_hash_entity_test() {
-        let input= b"\x00shortcuts\x00\x02appid\x00\x51\x2D\xEB\x82\x01exe\0\"C:\\Program Files (x86)\\Games\\Game.exe\"\0\x08";
+        let input= &mut &b"\x00shortcuts\x00\x02appid\x00\x51\x2D\xEB\x82\x01exe\0\"C:\\Program Files (x86)\\Games\\Game.exe\"\0\x08"[..];
 
-        let mut expected: HashMap<Cow<str>, MapValue> = HashMap::new();
-        expected.insert(Cow::Borrowed("appid"), MapValue::Number(2196450641));
+        let mut expected: HashMap<String, MapValue> = HashMap::new();
+        expected.insert("appid".to_string(), MapValue::Number(2196450641));
         expected.insert(
-            Cow::Borrowed("exe"),
-            MapValue::String(Cow::from("\"C:\\Program Files (x86)\\Games\\Game.exe\"")),
+            "exe".to_string(),
+            MapValue::String("\"C:\\Program Files (x86)\\Games\\Game.exe\"".to_string()),
         );
 
         match parse_hash_entity(input) {
-            Ok((_, actual)) => assert_eq!(
+            Ok(actual) => assert_eq!(
                 actual,
-                (Cow::Borrowed("shortcuts"), MapValue::Object(expected))
+                ("shortcuts".to_string(), MapValue::Object(expected))
             ),
             Err(err) => panic!("{}", err),
         }
