@@ -3,7 +3,7 @@ use winnow::{
     binary,
     combinator::{alt, delimited, preceded, repeat, terminated},
     error::ContextError,
-    token::{literal, take_until},
+    token::take_until,
     PResult, Parser,
 };
 
@@ -20,14 +20,13 @@ pub struct VdfFile {
 }
 
 pub fn parse_string<'i>(input: &mut &'i [u8]) -> PResult<String, ContextError<&'i str>> {
-    terminated(take_until(0.., 0x00), literal(0x00))
+    terminated(take_until(0.., 0x00), 0x00)
         .context("parseString Before Map")
         .map(|bytes| from_utf8(bytes).unwrap().to_string())
         .context("parseSring")
         .parse_next(input)
 }
 
-#[allow(clippy::needless_lifetimes)]
 pub fn parse_integer_entity<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
@@ -43,31 +42,29 @@ pub fn parse_string_entity<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
     (
-        preceded(literal(b"\x01"), parse_string),
+        preceded(b"\x01", parse_string),
         parse_string.map(MapValue::String),
     )
         .context("parse_string_entity")
         .parse_next(input)
 }
 
-#[allow(clippy::needless_lifetimes)]
 pub fn parse_hash_entity<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
     delimited(
-        literal(b"\x00"),
+        b"\x00",
         (
             parse_string,
             repeat(0.., parse_map_value)
                 .map(|x: Vec<(String, MapValue)>| MapValue::Object(x.into_iter().collect())),
         ),
-        literal(b"\x08"),
+        b"\x08",
     )
     .context("parse_hash_entity")
     .parse_next(input)
 }
 
-#[allow(clippy::needless_lifetimes)]
 pub fn parse_map_value<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
@@ -78,9 +75,8 @@ pub fn parse_map_value<'i>(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::{parse_hash_entity, parse_integer_entity, parse_string_entity, MapValue};
+    use std::collections::HashMap;
 
     #[test]
     fn test_parse_string_entity() {
