@@ -1,9 +1,9 @@
 use std::{collections::HashMap, str::from_utf8};
 use winnow::{
     binary,
-    combinator::{alt, delimited, preceded, repeat, terminated},
+    combinator::{delimited, preceded, repeat, terminated, dispatch, fail, peek},
     error::ContextError,
-    token::take_until,
+    token::{ literal, take_until, any},
     PResult, Parser,
 };
 
@@ -53,25 +53,32 @@ pub fn parse_hash_entity<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
     delimited(
-        b"\x00",
+        literal([0x00]).context("start parse_hash_entity"),
         (
-            parse_string,
-            repeat(0.., parse_map_value)
-                .map(|x: Vec<(String, MapValue)>| MapValue::Object(x.into_iter().collect())),
-        ),
+            parse_string.context("parse map name"),
+            repeat(0.., 
+                parse_map_value)
+                .map(|x: Vec<(String, MapValue)>| 
+                MapValue::Object(x.into_iter().collect())),
+        ).context("parse hash cotents"),
         b"\x08",
     )
     .context("parse_hash_entity")
     .parse_next(input)
 }
 
+
 pub fn parse_map_value<'i>(
     input: &mut &'i [u8],
 ) -> PResult<(String, MapValue), ContextError<&'i str>> {
-    alt((parse_string_entity, parse_integer_entity, parse_hash_entity))
-        .context("parse_map_entity")
-        .parse_next(input)
+    dispatch!(peek(any);
+        0x01 => parse_string_entity,
+        0x02 => parse_integer_entity,
+        0x00 => parse_hash_entity,
+        _ => fail,
+    ).parse_next(input)
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -100,6 +107,7 @@ mod tests {
         }
     }
 
+    
     #[test]
     fn parse_hash_entity_test() {
         let input= &mut &b"\x00shortcuts\x00\x02appid\x00\x51\x2D\xEB\x82\x01exe\0\"C:\\Program Files (x86)\\Games\\Game.exe\"\0\x08"[..];
