@@ -7,3 +7,8 @@ edition = "2021"
 
 [dependencies]
 vdf-parse = {path="vdf-parse"}
+serde_json = {version = "1.0"}
+clap = { version = "4.5.3", features = ["derive"] }
+
+[features]
+debug = ["vdf-parse/debug"]
