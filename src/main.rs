@@ -28,7 +28,7 @@ fn main() {
             .read_to_end(&mut buffer)
             .expect("Eror Reading file");
         let mut buffer = buffer.as_slice();
-        let result = match parse_hash_entity(&mut buffer){
+        let result = match parse_hash_entity(&mut buffer) {
             Ok(actual) => actual,
             Err(e) => panic!("Error parsing VDF file: {}", e),
         };

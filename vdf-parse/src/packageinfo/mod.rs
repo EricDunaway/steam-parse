@@ -1,0 +1,4 @@
+pub const PACKAGEINFO_MAGIC_2020: u32 = 0x06_56_55_28;
+pub const PACKAGEINFO_MAGIC: u32 = 0x06_56_55_27;
+
+

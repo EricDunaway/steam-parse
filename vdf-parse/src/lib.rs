@@ -7,8 +7,11 @@ use winnow::{
     PResult, Parser,
 };
 use serde::{Serialize, Serializer, ser::SerializeMap, Deserialize};
+mod appinfo;
+mod universe_type;
+mod steam_header;
 
-#[derive(PartialEq, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub enum MapValue {
     Number32(u32),
     Number64(u64),
@@ -39,7 +42,7 @@ impl Serialize for MapValue {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct VdfFile {
     entries: HashMap<String, MapValue>,
 }
